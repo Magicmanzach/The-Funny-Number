@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using KModkit;
 
@@ -24,6 +25,8 @@ public class funnyNumberScript : MonoBehaviour
 	public KMSelectable buttonCancel;
 	public TextMesh randoTxt;
 	public TextMesh inputTxt;
+
+	private Dictionary<char, KMSelectable> TwitchSelectables;
 
 	//Logging
 	static int moduleIdCounter = 1;
@@ -52,12 +55,26 @@ public class funnyNumberScript : MonoBehaviour
 		buttonNegative.OnInteract += delegate () { PressButtonNegative(); return false; };
 		buttonSubmit.OnInteract += delegate () { PressButtonSubmit(); return false; };
 		buttonCancel.OnInteract += delegate () { PressButtonCancel(); return false; };
+		TwitchSelectables = new Dictionary<char, KMSelectable>
+		{
+			{ '-', buttonNegative },
+			{ '0', button0 },
+			{ '1', button1 },
+			{ '2', button2 },
+			{ '3', button3 },
+			{ '4', button4 },
+			{ '5', button5 },
+			{ '6', button6 },
+			{ '7', button7 },
+			{ '8', button8 },
+			{ '9', button9 }
+		};
 		Debug.Log(moduleId);
 	}
 
 	void Start () 
 	{
-		rando = UnityEngine.Random.Range(0, 99);
+		rando = UnityEngine.Random.Range(0, 100);
 		randoTxt.text = rando.ToString();
 		inputTxt.text = "";
 		answer = 69 - rando;
@@ -308,5 +325,41 @@ public class funnyNumberScript : MonoBehaviour
 				inputTxt.text = input.ToString();
 			}
 		}
+	}
+
+	#pragma warning disable 414
+	private readonly string TwitchHelpMessage = "Submit a number with '!{0} submit [number]'. Leave [number] blank to just press the submit button.";
+	#pragma warning restore 414
+	
+	IEnumerator ProcessTwitchCommand(string command)
+	{
+		var match = Regex.Match(command.Trim(), @"^submit( (-?\d+))?$", RegexOptions.IgnoreCase);
+		if (!match.Success)
+			yield break;
+		yield return null;
+		yield return match.Groups[2].Value.Select(c => TwitchSelectables[c]).ToArray();
+		buttonSubmit.OnInteract();
+	}
+
+	IEnumerator HandleForcedSolve()
+	{
+		var handler = ProcessTwitchCommand("submit " + answer);
+		while (handler.MoveNext())
+		{
+			var current = handler.Current as KMSelectable[];
+			if (current == null) 
+				yield return null;
+			else foreach (var selectable in current)
+			{
+				yield return null;
+				selectable.OnInteract();
+				yield return new WaitForSeconds(.1f);
+			}
+		}
+	}
+
+	void TwitchHandleForcedSolve()
+	{
+		StartCoroutine(HandleForcedSolve());
 	}
 }
